@@ -1,11 +1,11 @@
 ---
 name: mosaic
-description: Apply Mosaic automatically to every substantive answer: dsh-view components, local-first interactions, diagrams, and sandboxed HTML/JS widgets. Use when a dashboard, table, chart, flow, sequence, steps, quiz, media card, or interactive demo makes the answer clearer than prose.
+description: Use Mosaic when a visual component makes a DeepSeek Harness answer easier to scan: dsh-view components, local-first interactions, diagrams, and sandboxed HTML/JS widgets. It is optional; prose is fine when no component helps.
 ---
 
 # Mosaic — compact visual answers
 
-Mosaic is **on by default**. Before sending a substantive answer, run a format check; if it contains structure, numbers, a comparison, a flow, or an interaction, emit a `dsh-view` fence. Pure greetings, one-line confirmations, and prose with no structure may stay text.
+Mosaic is optional. Use it when a component makes the answer easier to scan; plain prose is fine. Do not add UI just because the answer has structure or numbers.
 
 Mosaic renders a small declarative component tree inside a `dsh-view` fence, or as a `render_view` tool card. Use the smallest format that fits; do not decorate an answer that a sentence already explains.
 
@@ -23,12 +23,11 @@ Mosaic renders a small declarative component tree inside a `dsh-view` fence, or 
 Rules:
 
 - Put the fence in the reply body, never in reasoning. The opening tag must be exactly `dsh-view`; a `json`/`text`/unlabelled fence normally stays a code block. The client has a narrow legacy fallback for a complete spec in an assistant row, but never rely on it.
-- **Automatic:** do not wait for the user to ask for UI; apply the format check yourself. A substantive answer should almost always contain one component; if nothing specialized fits, a `callout` is the minimum.
 - Keep the JSON strict; no comments, trailing commas, or Markdown inside text fields.
-- One focal component per answer. Do not express the same data as both a table and a chart.
+- Prefer one focal component; do not repeat the same data as both a table and a chart.
 - For files or Office documents, use a `link` card. Mosaic does not read local files or render Office; those open in the host app.
 - Media (`image`, `video`, `audio`, `pdf`) accepts an `http(s)` URL or a root-relative path.
-- Use `validate_view` before emitting a spec with ≥3 components or a table/widget/diagram. For a flowchart longer than 6 nodes, prefer `direction: "TB"`; a long `LR` diagram scrolls horizontally.
+- `validate_view` is available for a preflight check on complex specs. For a flowchart longer than 6 nodes, prefer `direction: "TB"`; a long `LR` diagram scrolls horizontally.
 
 ## Components
 
@@ -67,7 +66,7 @@ Rules:
 
 ### Diagram
 
-Use `diagram` for flows, sequences, timelines, and layered architecture. It is plain JSON; do not hand-write Mermaid markup for these unless the content needs a real Mermaid engine inside a widget. Flowchart and sequence nodes are rendered through a lazy-loaded Mermaid engine; timeline and layers use the built-in renderer. Every diagram card also has a `drawio` download button.
+When you show a flow, sequence, timeline, or layered architecture, use `diagram`. It is plain JSON; do not hand-write Mermaid markup for these unless the content needs a real Mermaid engine inside a widget. Flowchart and sequence nodes are rendered through a lazy-loaded Mermaid engine; timeline and layers use the built-in renderer. Every diagram card also has a `drawio` download button.
 
 - `flowchart`: `nodes: [{id, label, sub?, tone?: "accent|success|warning|danger|muted", shape?: "box|round|diamond"}], edges: [{from, to, label?, kind?: "solid|dashed|accent"}], direction?: "TB|LR"`
 - `sequence`: `participants: [{id, label}], messages: [{from, to, label, kind?: "sync|return|async"}]`
@@ -117,7 +116,7 @@ Images can be expanded to a full-screen lightbox; video/audio use the browser's 
 
 `widget`: `{code, height?: 80-900, title?, caption?}`
 
-Use a widget only when the fixed components cannot do the job: a game, a physics/math simulator, a Web Audio instrument, a map, or a custom canvas. `code` is an HTML fragment or a complete document. It runs in an iframe with:
+A widget is for content the fixed components cannot express: a game, a physics/math simulator, a Web Audio instrument, a map, or a custom canvas. `code` is an HTML fragment or a complete document. It runs in an iframe with:
 
 - `sandbox="allow-scripts allow-forms allow-popups"` (opaque origin; no `allow-same-origin`)
 - CSP: no network; inline scripts/styles and `data:`/`blob:` images or media only
@@ -132,7 +131,7 @@ window.mosaic.resize()
 
 The parent passes theme variables as CSS custom properties: `--mosaic-bg`, `--mosaic-text`, `--mosaic-muted`, `--mosaic-border`, `--mosaic-accent`, `--mosaic-success`, `--mosaic-warn`, `--mosaic-danger`, `--mosaic-card`. Use these instead of hard-coded colors.
 
-Always give the widget a visible title and a short caption. Do not use a widget for content that a table, chart, or callout can express.
+A visible title and a short caption make the widget easier to scan. Prefer fixed components when a table, chart, or callout expresses the content.
 
 ## Actions
 
@@ -144,11 +143,9 @@ A component action sends one user message:
 
 After an action, update the existing view instead of restating the whole answer. Only send an action for work that needs the model or a tool. Sorting, filtering, tabs, quiz grading, copy, and full-screen are local.
 
-## Output discipline
+## Presentation guidance (optional)
 
-- Prefer prose for a one-sentence answer.
-- Use a table for comparisons, a chart for trends/shares, a list for ≥3 parallel points, steps for a sequence, a callout for one risk/conclusion.
-- Use `grid` + `card` only when items need to sit side by side or share a semantic surface.
-- Avoid decorative cards, repeated summaries, and nested scrolling.
+- Use Mosaic when a component makes the answer easier to scan; prose is fine when it does not.
+- Choose the smallest component that carries the structure; avoid decorative cards, repeated summaries, and nested scrolling.
 - Keep the tree under 80 nodes and 6 levels.
 - A malformed fence falls back to the original code block; a widget that fails to boot shows its source and an error strip.
