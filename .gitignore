@@ -1,0 +1,10 @@
+node_modules/
+.pnpm-store/
+tests/
+.DS_Store
+*.tgz
+coverage/
+.env
+.env.*
+!.env.example
+*.log

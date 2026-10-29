@@ -1,0 +1,9 @@
+# Submit this file to https://github.com/awesome-dsh-plugin/awesome-dsh-plugin
+# as data/plugins/imwhatiam__dsh-mosaic.yml after the GitHub repo exists.
+url: https://github.com/imwhatiam/dsh-mosaic
+name: imwhatiam/dsh-mosaic
+category: ui
+description:
+  en: 'Renders structured visual answers in DeepSeek Harness: metrics, charts, tables, diagrams, media and interactive widgets, with three selectable visual themes and local-first interactions.'
+  zh: '为 DeepSeek Harness 渲染结构化可视化回答：指标、图表、表格、流程图、媒体和交互组件；提供三套可选视觉风格，交互默认在浏览器本地完成。'
+icon: https://raw.githubusercontent.com/imwhatiam/dsh-mosaic/main/assets/icon-180.png

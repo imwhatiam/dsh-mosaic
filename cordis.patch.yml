@@ -1,0 +1,8 @@
+# dsh-mosaic bundle patch.
+# Insert the Mosaic row and turn off the older dsh-genui row so one visual
+# language is active. Remove the `genui` entry if you want both side by side.
+- id: genui
+  disabled: true
+- insert:
+    - id: mosaic
+      name: dsh-mosaic

@@ -1,0 +1,57 @@
+{
+  "name": "dsh-mosaic",
+  "version": "0.3.0",
+  "type": "module",
+  "description": "Lightweight visual answers for DeepSeek Harness: three selectable visual themes, compact dsh-view components, Mermaid diagrams, a sandboxed HTML/JS escape hatch, local-first interactions, and link-only media cards.",
+  "author": "imwhatiam",
+  "homepage": "https://github.com/imwhatiam/dsh-mosaic#readme",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/imwhatiam/dsh-mosaic.git"
+  },
+  "bugs": {
+    "url": "https://github.com/imwhatiam/dsh-mosaic/issues"
+  },
+  "keywords": [
+    "deepseek-harness",
+    "dsh",
+    "plugin",
+    "visualization",
+    "mermaid",
+    "diagram"
+  ],
+  "icon": "./assets/icon.svg",
+  "exports": {
+    ".": "./lib/index.js",
+    "./client": "./lib/client.js",
+    "./locale/*.json": "./locale/*.json",
+    "./icon": "./assets/icon.svg",
+    "./skill": "./SKILL.md"
+  },
+  "files": [
+    "lib",
+    "assets",
+    "locale",
+    "SKILL.md",
+    "README.md",
+    "THIRD_PARTY_NOTICES.md",
+    "screenshots.json",
+    "cordis.patch.yml",
+    "package.json"
+  ],
+  "dsh": {
+    "bundle": { "patch": "./cordis.patch.yml" },
+    "client": {
+      "platform": "web",
+      "immediately": true,
+      "inject": []
+    }
+  },
+  "scripts": {
+    "test": "node --test test/*.test.mjs"
+  },
+  "engines": {
+    "dsh": "^0.2.0-rc.1 || ^0.2.1-rc.1"
+  },
+  "license": "MIT"
+}
