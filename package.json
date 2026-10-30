@@ -1,8 +1,8 @@
 {
   "name": "dsh-mosaic",
-  "version": "0.3.0",
+  "version": "0.4.0",
   "type": "module",
-  "description": "Lightweight visual answers for DeepSeek Harness: three selectable visual themes, compact dsh-view components, Mermaid diagrams, a sandboxed HTML/JS escape hatch, local-first interactions, and link-only media cards.",
+  "description": "Lightweight visual answers for DeepSeek Harness: one compact visual style, an editable model prompt, dsh-view components, Mermaid diagrams, a sandboxed HTML/JS escape hatch, local-first interactions, and link-only media cards.",
   "author": "imwhatiam",
   "homepage": "https://github.com/imwhatiam/dsh-mosaic#readme",
   "repository": {
@@ -15,6 +15,7 @@
   "keywords": [
     "deepseek-harness",
     "dsh",
+    "dsh-plugin",
     "plugin",
     "visualization",
     "mermaid",
@@ -26,24 +27,31 @@
     "./client": "./lib/client.js",
     "./locale/*.json": "./locale/*.json",
     "./icon": "./assets/icon.svg",
-    "./skill": "./SKILL.md"
+    "./skill": "./SKILL.md",
+    "./package.json": "./package.json",
+    "./assets/*": "./assets/*"
   },
   "files": [
     "lib",
     "assets",
+    "docs",
     "locale",
     "SKILL.md",
     "README.md",
+    "CHANGELOG.md",
     "THIRD_PARTY_NOTICES.md",
+    "LICENSE",
     "screenshots.json",
     "cordis.patch.yml",
     "package.json"
   ],
   "dsh": {
-    "bundle": { "patch": "./cordis.patch.yml" },
+    "manifestVersion": 1,
+    "bundle": {
+      "patch": "./cordis.patch.yml"
+    },
     "client": {
       "platform": "web",
-      "immediately": true,
       "inject": []
     }
   },
@@ -51,7 +59,8 @@
     "test": "node --test test/*.test.mjs"
   },
   "engines": {
-    "dsh": "^0.2.0-rc.1 || ^0.2.1-rc.1"
+    "node": ">=24",
+    "dsh": ">=0.2.1-rc.1 <0.3.0-0"
   },
   "license": "MIT"
 }

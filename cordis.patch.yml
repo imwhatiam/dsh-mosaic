@@ -1,8 +1,14 @@
 # dsh-mosaic bundle patch.
-# Insert the Mosaic row and turn off the older dsh-genui row so one visual
-# language is active. Remove the `genui` entry if you want both side by side.
+# Turn off the older dsh-genui row so one visual language is active, then insert the
+# Mosaic row. `name` asserts which row is disabled; when dsh-genui is not installed the
+# Loader warns and skips that override. Delete the first block to run both side by side.
 - id: genui
+  name: '@changfenhuang/dsh-genui'
   disabled: true
 - insert:
     - id: mosaic
       name: dsh-mosaic
+      config: {}
+      # Override the contributed model prompt here, e.g.:
+      #   config:
+      #     prompt: 'Only render a dsh-view fence when a table or chart helps.'

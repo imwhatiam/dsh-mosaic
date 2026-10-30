@@ -4,7 +4,7 @@
 
 The lazy `lib/assets/mermaid.js` bundle contains [Mermaid](https://github.com/mermaid-js/mermaid), licensed under the MIT License.
 
-The bundle wrapper is derived from the Mermaid lazy asset shipped by `@changfenhuang/dsh-genui` (MIT), adapted to register the engine on `window.__GenuiAssets__.mermaid`.
+The bundle wrapper is derived from the Mermaid lazy asset shipped by `@changfenhuang/dsh-genui` (MIT), adapted to register the engine on `window.__MosaicAssets__.mermaid`, so no identifier is shared with that package.
 
 ## draw.io / maxGraph
 
