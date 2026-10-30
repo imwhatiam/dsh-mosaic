@@ -51,7 +51,9 @@ test('visible UI copy is not hardcoded outside the dictionaries', () => {
 })
 
 test('the client owns no theme state, no invented route, and no extra root per block', () => {
-  assert.doesNotMatch(source, /__GenuiAssets__|data-mosaic-theme|MOSAIC_THEMES|ThemePicker|clearLegacyThemeStorage/)
+  // No hidden global handshake: the bundled engine is reached through `window.mermaid`
+  // (the official build's own global), never through a package-scoped namespace.
+  assert.doesNotMatch(source, /__[A-Za-z]+Assets__|data-mosaic-theme|MOSAIC_THEMES|ThemePicker|clearLegacyThemeStorage/)
   assert.doesNotMatch(source, /matchMedia/, 'no OS colour-scheme sniffing')
   // The ONLY host attribute the client reads: the documented dark-theme signal, used
   // to forward resolved tokens into a sandboxed widget that cannot inherit them.
