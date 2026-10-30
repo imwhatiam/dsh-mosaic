@@ -1,10 +1,5 @@
-# dsh-mosaic bundle patch.
-# Turn off the older dsh-genui row so one visual language is active, then insert the
-# Mosaic row. `name` asserts which row is disabled; when dsh-genui is not installed the
-# Loader warns and skips that override. Delete the first block to run both side by side.
-- id: genui
-  name: '@changfenhuang/dsh-genui'
-  disabled: true
+# dsh-mosaic bundle patch: insert this package's own row.
+# It touches no other entry, so a user composition decides which plugins run.
 - insert:
     - id: mosaic
       name: dsh-mosaic

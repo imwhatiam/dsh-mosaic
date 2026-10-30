@@ -60,7 +60,20 @@ test('the client owns no theme state, no invented route, and no extra root per b
     .split('\n')
     .filter((line) => line.includes('data-ds-dark-theme') && !line.trimStart().startsWith('//'))
   assert.equal(attributeUses.length, 1, 'the theme signal is observed in exactly one place')
-  assert.doesNotMatch(source, /\/plugins\/dsh-mosaic|PROMPT_ENDPOINT/)
+  // `/plugins` is the module system's prefix, so this client never requests it.
+  assert.doesNotMatch(source, /\/plugins\/dsh-mosaic/)
+  assert.doesNotMatch(source, /PROMPT_ENDPOINT/)
+  // The Host publishes its asset URL; the client asks before guessing, and gives a
+  // slow asset a bounded wait instead of hanging the diagram forever.
+  assert.match(source, /data\.assets\.mermaid/)
+  assert.match(source, /MERMAID_TIMEOUT_MS = \d+/)
+  assert.match(source, /MERMAID_ROUTE = '\/dsh-mosaic\/assets\/mermaid\.min\.js'/)
+  // The bundled engine is the official build; our own code must stay out of it and
+  // the SVG must pass our gate before it reaches the DOM.
+  assert.match(source, /securityLevel: 'strict'/)
+  assert.match(source, /htmlLabels: false/)
+  assert.match(source, /function sanitizeMermaidSvg\(/)
+  assert.doesNotMatch(source, /__MosaicAssets__|assertSafeSvg|repairMermaidSource/)
   assert.equal((source.match(/createRoot\(/g) ?? []).length, 1, 'one fence root per mounted block')
   assert.match(source, /ReactDOM\.createPortal\(/)
   assert.match(source, /ctx\.effect\(ensureStyles/)

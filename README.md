@@ -6,7 +6,7 @@ Mosaic 是一个轻量的 DeepSeek Harness 可视化回答插件。它把模型�
 
 它刻意不追求“什么都能画”：
 
-- 主包没有 ECharts / Three.js；flowchart / sequence 的 Mermaid 引擎是懒加载资产，只在出现 diagram 时下载约 3 MB。
+- 主包没有 ECharts / Three.js；flowchart / sequence 用官方 Mermaid 发行包，作为懒加载资产，只在出现 diagram 时下载（原始 5.5 MB，gzip 后约 1.3 MB，带版本号可长期缓存）。
 - 每个 diagram 卡片右上角有 `drawio` 按钮，可导出标准 mxGraph XML，在 draw.io 里继续编辑。
 - 组件目录保持精简，字段、校验、提示词来自同一份定义。
 - 普通文件/Office 只给链接，不在聊天里硬解。
@@ -64,7 +64,7 @@ Mosaic 是一个轻量的 DeepSeek Harness 可视化回答插件。它把模型�
 - 围栏渲染靠扫描页面里的代码块实现：DSH 0.2.1-rc.3 没有给插件开放「渲染 fenced code block」的扩展点。工具通道 `render_view` + `tool.call.toolview` 是原生做法，围栏是它的补充。
 - `widget` 是 iframe，拿不到宿主的 `ctx.locale`，因此内部文案由调用方自己写；主题靠宿主令牌值传入。围栏是独立的 React root，切换外观不会触发它重渲染，所以 widget 会观察 `body[data-ds-dark-theme]` 这一个外观属性并在变化时重发令牌——这是插件唯一读取的宿主属性。
 - Mermaid 资产走包内私有路由 `/dsh-mosaic/assets`；没有 Web 服务时 diagram 回落到内置 SVG 布局。
-- 安装时 bundle patch 会关闭 `dsh-genui` 行（带 `name` 断言）；未安装 genui 时 Loader 会警告并跳过这一条，不影响 Mosaic。
+- bundle patch 只插入 Mosaic 自己这一行，不改动任何其他插件。若你还装了别的围栏类插件，两者可以对同一段围栏各显一套，按需在 profile 里关掉其中一个即可。
 - Prompt 编辑页是对平台形态的**补充，不是平台标准做法**。DSH 把 Prompt 视为 composition 配置（system-prompt 的 README 明确写着没有终端用户编辑 Prompt 的 API），标准平面是 `Config` + `cordis.patch.yml`，客户端改值应走 `@Remote`，插件自有数据应走存储服务。这里为了「只装一个包、不引入 peer 依赖」，写入用了自建的同源校验路由、持久化用了自建的 `mosaic/prompt.json`。将来宿主提供多行配置表单或标准 Remote 时，这块应当迁移过去。
 
 ## 本地优先
@@ -99,7 +99,7 @@ dsh plugin --profile web add dsh-mosaic
 dsh plugin --profile desktop add link:/absolute/path/to/dsh-mosaic
 ```
 
-安装后重启或刷新 DSH Web，新会话即可使用。插件会通过 bundle patch 关闭旧的 `dsh-genui` 行，避免两套围栏语言同时出现；想并存就删掉 `cordis.patch.yml` 里那一段（genui 未安装时该覆盖会被 Loader 警告并跳过）。
+安装后重启或刷新 DSH Web，新会话即可使用。bundle patch 只插入本插件一行，不会关闭或覆盖别人的插件。
 
 ## 限制
 

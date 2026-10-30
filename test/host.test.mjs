@@ -100,6 +100,23 @@ function createContext() {
   return ctx
 }
 
+test('the prompt route publishes the asset URL the client should use', async () => {
+  const ctx = createContext()
+  apply(ctx, {})
+  const route = ctx.state.routes.find((entry) => entry.path === '/dsh-mosaic/prompt')
+  assert.ok(route, 'prompt route registered')
+  const res = {
+    statusCode: 0,
+    headers: {},
+    setHeader(name, value) { this.headers[name] = value },
+    end(body) { this.body = body ?? '' },
+  }
+  await route.handler({ method: 'GET', headers: {} }, res)
+  const data = JSON.parse(res.body)
+  assert.equal(data.assets.mermaid, '/dsh-mosaic/assets/mermaid.min.js?v=12.2.0')
+  assert.equal(data.source, 'builtin')
+})
+
 test('activating with no config contributes the built-in prompt at an external order', () => {
   const ctx = createContext()
   apply(ctx, undefined)

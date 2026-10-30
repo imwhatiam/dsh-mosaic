@@ -15,7 +15,7 @@
 
 - Do not commit `node_modules/`, `.pnpm-store/`, `tests/`, `.DS_Store`, or build/tarball artifacts. `.gitignore` covers the usual cases.
 - Keep `LICENSE`, `THIRD_PARTY_NOTICES.md`, and the Mermaid asset attribution in the repository.
-- The bundle patch disables `dsh-genui` to avoid two visual fence languages. Document this; users who want both can remove that row.
+- The bundle patch only inserts the plugin's own row; it never disables or patches another package. If a user runs two fence renderers, that is their composition to resolve.
 - The Mermaid asset is a lazy 3.2 MB JavaScript file. It is included in the npm tarball but not requested until a flowchart or sequence appears.
 - The widget is an opaque-origin sandbox with no network. Do not add a network-backed script to it.
 

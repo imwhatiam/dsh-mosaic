@@ -1,5 +1,17 @@
 # Changelog
 
+## 0.4.1
+
+- Mermaid now ships as the unmodified official 12.2.0 distribution
+  (`lib/assets/mermaid.min.js`, MIT) instead of a wrapper derived from another
+  plugin. Rendering, theme mapping and SVG sanitizing are this package's own code.
+- The lazy asset URL is versioned (`?v=…`) and answered with an immutable cache entry;
+  the client asks the Host for the URL first and keeps one literal fallback.
+- `THIRD_PARTY_NOTICES.md` lists every dependency bundled inside the Mermaid build with
+  its license, and the license texts ship under `lib/assets/licenses/`.
+- The bundle patch no longer disables another plugin: it only inserts this package's
+  row.
+
 ## 0.4.0
 
 - One visual style: the three-theme system (编辑 / 卡片 / 玻璃), its picker, tokens and
