@@ -4,6 +4,6 @@ url: https://github.com/imwhatiam/dsh-mosaic
 name: imwhatiam/dsh-mosaic
 category: ui
 description:
-  en: 'Renders structured visual answers in DeepSeek Harness: metrics, charts, tables, diagrams, media and interactive widgets, with three selectable visual themes and local-first interactions.'
-  zh: '为 DeepSeek Harness 渲染结构化可视化回答：指标、图表、表格、流程图、媒体和交互组件；提供三套可选视觉风格，交互默认在浏览器本地完成。'
+  en: 'Renders structured visual answers in DeepSeek Harness: metrics, charts, tables, diagrams, media and interactive widgets, with one compact visual style, an editable model prompt, and local-first interactions.'
+  zh: '为 DeepSeek Harness 渲染结构化可视化回答：指标、图表、表格、流程图、媒体和交互组件；提供一套紧凑视觉风格、可编辑的模型 Prompt，交互默认在浏览器本地完成。'
 icon: https://raw.githubusercontent.com/imwhatiam/dsh-mosaic/main/assets/icon-180.png

@@ -14,20 +14,9 @@ Mosaic 是一个轻量的 DeepSeek Harness 可视化回答插件。它把模型�
 
 ## 预览
 
-三种可选视觉方向，均来自实际 DSH Web 页面渲染：
+实际 DSH Web 页面渲染：
 
-<table>
-  <tr>
-    <td><img src="https://raw.githubusercontent.com/imwhatiam/dsh-mosaic/main/assets/screenshots/theme-cards.jpg" alt="卡片主题"></td>
-    <td><img src="https://raw.githubusercontent.com/imwhatiam/dsh-mosaic/main/assets/screenshots/theme-editorial.jpg" alt="编辑主题"></td>
-    <td><img src="https://raw.githubusercontent.com/imwhatiam/dsh-mosaic/main/assets/screenshots/theme-glass.jpg" alt="玻璃主题"></td>
-  </tr>
-  <tr>
-    <td align="center"><sub>卡片 · 默认</sub></td>
-    <td align="center"><sub>编辑</sub></td>
-    <td align="center"><sub>玻璃</sub></td>
-  </tr>
-</table>
+![Mosaic 预览](https://raw.githubusercontent.com/imwhatiam/dsh-mosaic/main/assets/screenshots/preview.jpg)
 
 ## 两个通道
 
@@ -44,15 +33,19 @@ Mosaic 是一个轻量的 DeepSeek Harness 可视化回答插件。它把模型�
 
 **工具卡片**：模型调用 `render_view`，适合独立面板、表格、图表或小组件。另有 `validate_view` 做发出前校验。
 
-## 视觉风格
+## 一套视觉风格 + 可覆盖的模型 Prompt
 
-每个 Mosaic 回答右上角有「风格」按钮，可在三种视觉方向之间切换：
+界面只有一套轻卡片风格，颜色全部取自主题令牌（`--dsw-alias-*`），因此自动跟随 DSH 的浅色/深色与字号，不再有主题切换器。
 
-- **编辑**：Claude 风格，衬线标题、纸面感、无卡片边框。
-- **卡片**：ChatGPT 风格，白卡片、蓝色强调、轻阴影；默认。
-- **玻璃**：WorkBuddy 风格，青绿色强调、半透明表面、柔和阴影。
+插件向模型贡献一段说明可视化能力的 Prompt，默认是包内文本。
 
-选择会保存在 `localStorage` 的 `dsh-mosaic.theme.v1`，对当前浏览器里的所有 Mosaic 回答生效。
+**Settings → Mosaic** 就是这段文本的编辑页：打开即显示当前生效的内容（默认就是内置文案），可以直接改、点「保存」，随时点「恢复默认」回到插件自带文案。保存后从下一轮模型请求开始生效，所有浏览器看到的是同一份，重启也在。
+
+生效顺序是「你保存的覆盖 > 配置文件里的 `config.prompt` > 内置文本」。想在 profile 里批量固定一份基线，仍然可以在 `cordis.patch.yml` 给 mosaic 行加 `config.prompt`；留空、类型不对或超过 128 KB 会回落。
+
+覆盖内容存在 Host 数据目录的 `mosaic/prompt.json`，不进 profile 的组合文件，所以升级、换浏览器都不丢。写不进去时页面会明确提示「本次仅在进程内生效」，不会假装保存成功。
+
+写接口只接受**同源**且 `content-type: application/json` 的请求（并核对浏览器的 `Sec-Fetch-Site`），跨站页面既读不到也改不了这段文本。渲染出的卡片右上角另有「复制 JSON」，用于取回该块的围栏文本。
 
 ## 组件
 
@@ -62,13 +55,23 @@ Mosaic 是一个轻量的 DeepSeek Harness 可视化回答插件。它把模型�
 - 交互：`button` `input` `select` `slider` `tabs` `quiz`
 - 高级：`widget`
 
+`diff` 带行号和 `-`/`+` gutter，长行自动换行。
+
 完整字段见 [`SKILL.md`](./SKILL.md)。
+
+## 已知边界
+
+- 围栏渲染靠扫描页面里的代码块实现：DSH 0.2.1-rc.3 没有给插件开放「渲染 fenced code block」的扩展点。工具通道 `render_view` + `tool.call.toolview` 是原生做法，围栏是它的补充。
+- `widget` 是 iframe，拿不到宿主的 `ctx.locale`，因此内部文案由调用方自己写；主题靠宿主令牌值传入。围栏是独立的 React root，切换外观不会触发它重渲染，所以 widget 会观察 `body[data-ds-dark-theme]` 这一个外观属性并在变化时重发令牌——这是插件唯一读取的宿主属性。
+- Mermaid 资产走包内私有路由 `/dsh-mosaic/assets`；没有 Web 服务时 diagram 回落到内置 SVG 布局。
+- 安装时 bundle patch 会关闭 `dsh-genui` 行（带 `name` 断言）；未安装 genui 时 Loader 会警告并跳过这一条，不影响 Mosaic。
+- Prompt 编辑页是对平台形态的**补充，不是平台标准做法**。DSH 把 Prompt 视为 composition 配置（system-prompt 的 README 明确写着没有终端用户编辑 Prompt 的 API），标准平面是 `Config` + `cordis.patch.yml`，客户端改值应走 `@Remote`，插件自有数据应走存储服务。这里为了「只装一个包、不引入 peer 依赖」，写入用了自建的同源校验路由、持久化用了自建的 `mosaic/prompt.json`。将来宿主提供多行配置表单或标准 Remote 时，这块应当迁移过去。
 
 ## 本地优先
 
 表格排序/筛选/导出、tabs、quiz 判题、输入值、slider 拖动都在浏览器内完成。`button` 的 `local` 支持 `reset`、`copy`、`open`、`fullscreen`；只有 `action` 会把一条 `[mosaic-action]` 用户消息发回模型。
 
-状态按「会话 + 槽位 + 内容指纹」写入 `localStorage`，最多保留 100 块，刷新或重开会话时恢复。
+状态按「会话 + 槽位 + 内容指纹」写入 `localStorage`，最多保留 100 块，刷新或重开会话时恢复。界面文案（按钮、提示、诊断）走 DSH 的 Client locale 服务，内置 `en` 与 `zh` 两套。
 
 ## 沙箱 widget
 
@@ -96,7 +99,7 @@ dsh plugin --profile web add dsh-mosaic
 dsh plugin --profile desktop add link:/absolute/path/to/dsh-mosaic
 ```
 
-安装后重启或刷新 DSH Web，新会话即可使用。插件会通过 bundle patch 关闭旧的 `dsh-genui` 行，避免两套围栏语言同时出现；想并存就把 `cordis.patch.yml` 里的 `- id: genui` 删掉。
+安装后重启或刷新 DSH Web，新会话即可使用。插件会通过 bundle patch 关闭旧的 `dsh-genui` 行，避免两套围栏语言同时出现；想并存就删掉 `cordis.patch.yml` 里那一段（genui 未安装时该覆盖会被 Loader 警告并跳过）。
 
 ## 限制
 
