@@ -142,16 +142,68 @@ test('activation registers both tools and the bundled skill provider', () => {
   assert.equal(ctx.state.providers[0].name, 'dsh-mosaic')
 })
 
-test('activation serves plugin assets and one guarded prompt route', () => {
+test('activation serves plugin assets, the prompt route and the log sink', () => {
   const ctx = createContext()
   apply(ctx, {})
-  assert.equal(ctx.state.routes.length, 2)
+  assert.equal(ctx.state.routes.length, 3)
   const asset = ctx.state.routes.find((entry) => entry.path.startsWith('/dsh-mosaic/assets'))
   assert.ok(asset && asset.kind === 'prefix', 'the module system owns /plugins')
-  const prompt = ctx.state.routes.find((entry) => entry.path === '/dsh-mosaic/prompt')
-  assert.ok(prompt, 'the settings page reads and writes the prompt here')
-  assert.equal(prompt.kind, 'exact')
-  assert.equal(typeof prompt.handler, 'function')
+  for (const path of ['/dsh-mosaic/prompt', '/dsh-mosaic/log']) {
+    const route = ctx.state.routes.find((entry) => entry.path === path)
+    assert.ok(route, `${path} is registered`)
+    assert.equal(route.kind, 'exact')
+    assert.equal(typeof route.handler, 'function')
+  }
+})
+
+test('the client log sink refuses foreign writes and records a bounded event', async () => {
+  const ctx = createContext()
+  apply(ctx, {})
+  const route = ctx.state.routes.find((entry) => entry.path === '/dsh-mosaic/log')
+  const post = (headers, body) => ({
+    method: 'POST',
+    headers: { host: '127.0.0.1:55467', ...headers },
+    async *[Symbol.asyncIterator]() { yield Buffer.from(body) },
+  })
+  const response = () => ({
+    statusCode: 0,
+    headers: {},
+    setHeader(name, value) { this.headers[name] = value },
+    writeHead(code, headers) {
+      this.statusCode = code
+      Object.assign(this.headers, headers ?? {})
+    },
+    end() {},
+  })
+  const blocked = response()
+  await route.handler(post({ 'sec-fetch-site': 'cross-site' }, '{"event":"x"}'), blocked)
+  assert.equal(blocked.statusCode, 403)
+  const ok = response()
+  await route.handler(post({ 'content-type': 'application/json' }, JSON.stringify({ level: 'warn', event: 'fence.parse-failed', detail: { chars: 12 } })), ok)
+  assert.equal(ok.statusCode, 204)
+  // The sink appends asynchronously; give the queue a moment to reach disk.
+  const { readdirSync, readFileSync } = await import('node:fs')
+  const dir = join(storeHome, 'logs', 'dsh-mosaic')
+  for (let attempt = 0; attempt < 40; attempt += 1) {
+    await new Promise((resolve) => setTimeout(resolve, 25))
+    if (readdirSync(dir).some((name) => name.endsWith('.jsonl'))) break
+  }
+  const files = readdirSync(dir).filter((name) => name.endsWith('.jsonl'))
+  assert.ok(files.length > 0, 'a log file was created')
+  const text = files.map((name) => readFileSync(join(dir, name), 'utf8')).join('')
+  assert.match(text, /client\.fence\.parse-failed/)
+  // A prompt-like field is reduced to its length, never written out.
+  const leaked = response()
+  await route.handler(post({ 'content-type': 'application/json' }, JSON.stringify({
+    level: 'warn', event: 'probe', detail: { prompt: 'SECRET-MARKER-XYZ', note: 'ok' },
+  })), leaked)
+  for (let attempt = 0; attempt < 40; attempt += 1) {
+    await new Promise((resolve) => setTimeout(resolve, 25))
+    if (readFileSync(join(dir, files[0]), 'utf8').includes('promptChars')) break
+  }
+  const after = files.map((name) => readFileSync(join(dir, name), 'utf8')).join('')
+  assert.doesNotMatch(after, /SECRET-MARKER/, 'user content never reaches the log')
+  assert.match(after, /"promptChars":\d+/)
 })
 
 test('disposing the plugin removes the prompt section, tools, provider and route', () => {

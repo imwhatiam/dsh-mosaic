@@ -1,6 +1,6 @@
 ---
 name: mosaic
-description: Use Mosaic when a visual component makes a DeepSeek Harness answer easier to scan: dsh-view components, local-first interactions, diagrams, and sandboxed HTML/JS widgets. It is optional; prose is fine when no component helps.
+description: "Use Mosaic when a visual component makes a DeepSeek Harness answer easier to scan: dsh-view components, local-first interactions, diagrams, and sandboxed HTML/JS widgets. It is optional; prose is fine when no component helps."
 ---
 
 # Mosaic — compact visual answers
@@ -114,13 +114,15 @@ Images can be expanded to a full-screen lightbox; video/audio use the browser's 
 
 ### Sandboxed widget
 
-`widget`: `{code, height?: 80-900, title?, caption?}`
+`widget`: `{code, height?: 80-900, title?, caption?, actions?}`
 
 A widget is for content the fixed components cannot express: a game, a physics/math simulator, a Web Audio instrument, a map, or a custom canvas. `code` is an HTML fragment or a complete document. It runs in an iframe with:
 
 - `sandbox="allow-scripts allow-forms allow-popups"` (opaque origin; no `allow-same-origin`)
 - CSP: no network; inline scripts/styles and `data:`/`blob:` images or media only
 - no access to the host page, cookies, or local storage
+
+`window.mosaic.action(name, payload)` reaches the model only after a real user gesture inside the widget; set `actions: "programmatic"` when the widget must submit on its own (still capped at 10 calls a minute and 16 KB per payload).
 
 Inside the widget:
 

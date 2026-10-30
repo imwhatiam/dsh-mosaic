@@ -43,9 +43,9 @@ Mosaic 是一个轻量的 DeepSeek Harness 可视化回答插件。它把模型�
 
 生效顺序是「你保存的覆盖 > 配置文件里的 `config.prompt` > 内置文本」。想在 profile 里批量固定一份基线，仍然可以在 `cordis.patch.yml` 给 mosaic 行加 `config.prompt`；留空、类型不对或超过 128 KB 会回落。
 
-覆盖内容存在 Host 数据目录的 `mosaic/prompt.json`，不进 profile 的组合文件，所以升级、换浏览器都不丢。写不进去时页面会明确提示「本次仅在进程内生效」，不会假装保存成功。
+覆盖内容存在 Host 数据目录的 `mosaic/prompt.json`，不进 profile 的组合文件，所以升级、换浏览器都不丢。写入是原子的（临时文件 + fsync + rename，权限 `0600`），失败时旧内容保持原样；写不进去时页面会明确提示「本次仅在进程内生效」。文件如果损坏或读不出来，页面同样会提示，并按内置内容运行、保留原文件供你修复。
 
-写接口只接受**同源**且 `content-type: application/json` 的请求（并核对浏览器的 `Sec-Fetch-Site`），跨站页面既读不到也改不了这段文本。渲染出的卡片右上角另有「复制 JSON」，用于取回该块的围栏文本。
+读写接口都只接受**同源**请求（核对浏览器的 `Sec-Fetch-Site` 与 `Origin`），写请求还要求 `content-type: application/json`；响应里不带 Host 的绝对路径。跨站页面既读不到也改不了这段文本。渲染出的卡片右上角另有「复制 JSON」，用于取回该块的围栏文本。
 
 ## 组件
 
@@ -59,12 +59,42 @@ Mosaic 是一个轻量的 DeepSeek Harness 可视化回答插件。它把模型�
 
 完整字段见 [`SKILL.md`](./SKILL.md)。
 
+## 日志
+
+插件会把自己的运行情况写进一个 JSONL 文件，出问题时优先看它：
+
+```
+$DSH_HOME/logs/dsh-mosaic/YYYY-MM-DD.jsonl   # 未设置 DSH_HOME 时是 ~/.dsh/logs/dsh-mosaic/
+```
+
+- 一行一个 JSON 对象，字段固定：`ts`、`level`（debug/info/warn/error）、`event`，其余按事件附带（如 `tool`、`ms`、`status`、`route`、`source`、`reason`）。
+- 记录什么：激活/停用、Prompt 的读取与保存（来源、字符数、是否落盘）、工具执行（名称、结果状态、耗时）、路由请求（方法、状态码、耗时）、技能被读取、以及浏览器侧上报的失败（`client.` 前缀：围栏解析失败、Mermaid 失败、Prompt 读写失败、Widget 动作被限流/超限丢弃）。
+- 不记录什么：Prompt 正文、组件 JSON、任何文本字段的内容。字段名为 `prompt`/`text`/`code`/`content`/`secret`/`token`/`password`/`apiKey` 时只写字符数；其它字符串超过 300 字符会被截断。
+- 体积：单文件超过 2 MB 滚动为 `<日期>.1.jsonl`；超过 7 天的文件在下次启动时删除；文件权限 `0600`。写不进去时不会影响插件，只在宿主日志里告警一次。
+- 浏览器侧的失败通过同源 `POST /dsh-mosaic/log` 上报（请求体上限 4 KB，跨站 403，客户端每分钟最多 20 条）。
+- 默认级别 `info`；想要更细可以给 mosaic 行加 `config.logLevel: debug`（或 `warn` 减少噪音）。
+
+排查示例：
+
+```bash
+# 只看错误
+grep -h '"level":"error"' "$DSH_HOME"/logs/dsh-mosaic/*.jsonl
+# 看最近一次激活和 Prompt 来源
+grep -h '"event":"plugin.activate"\|"event":"prompt.hydrate"' "$DSH_HOME"/logs/dsh-mosaic/*.jsonl | tail -5
+# 统计工具失败次数
+grep -c '"event":"tool.failed"' "$DSH_HOME"/logs/dsh-mosaic/*.jsonl
+```
+
 ## 已知边界
 
-- 围栏渲染靠扫描页面里的代码块实现：DSH 0.2.1-rc.3 没有给插件开放「渲染 fenced code block」的扩展点。工具通道 `render_view` + `tool.call.toolview` 是原生做法，围栏是它的补充。
+- 版本号跟随「最近一次验证通过的 DeepSeek Harness 版本」：当前是 `0.2.1`（实测 rc.3、rc.5）。同一 Harness 版本下的插件修复递增补丁号；换到新 Harness 版本验证后再把版本号对齐过去。
+- 围栏渲染靠扫描页面里的代码块实现：0.2.1 全系列（实测 rc.3 与 rc.5，master 同样）都没有给插件开放「渲染 fenced code block」的扩展点。工具通道 `render_view` + `tool.call.toolview` 是原生做法，围栏是它的补充。
+- 从 0.2.1 起代码块由 Shiki 渲染，`<code>` 上**没有** `language-*` 类；识别靠「代码块位于 assistant 行内 + 正文能解析成合法视图 spec」这条路径，用户消息、工具结果、推理块里的代码块都被排除。
+- `widget` 里调用 `window.mosaic.action()` 只有**真实用户手势**之后才会把动作发回模型（用浏览器的 `navigator.userActivation` 判断，Widget 自己伪造不了）；确实需要自行提交的 Widget 要在节点上写 `actions: "programmatic"`，并且仍受「每分钟 10 次、单次 16 KB」的限制。
 - `widget` 是 iframe，拿不到宿主的 `ctx.locale`，因此内部文案由调用方自己写；主题靠宿主令牌值传入。围栏是独立的 React root，切换外观不会触发它重渲染，所以 widget 会观察 `body[data-ds-dark-theme]` 这一个外观属性并在变化时重发令牌——这是插件唯一读取的宿主属性。
 - Mermaid 资产走包内私有路由 `/dsh-mosaic/assets`；没有 Web 服务时 diagram 回落到内置 SVG 布局。
 - bundle patch 只插入 Mosaic 自己这一行，不改动任何其他插件。若你还装了别的围栏类插件，两者可以对同一段围栏各显一套，按需在 profile 里关掉其中一个即可。
+- 持久化只用「Host 数据目录里的一个 JSON 文件」，没有走 DSH 的 storageDomain。实测（rc.5）：`storageDomain` 可用，但记录校验只在**重新打开**时执行（`put` 不校验）；`single` 布局遇到版本变化会直接拒绝打开，`compatibleVersions` 也不适用。对一份 Prompt 来说这些能力换不来收益，反而多一个依赖和三条失败分支。
 - Prompt 编辑页是对平台形态的**补充，不是平台标准做法**。DSH 把 Prompt 视为 composition 配置（system-prompt 的 README 明确写着没有终端用户编辑 Prompt 的 API），标准平面是 `Config` + `cordis.patch.yml`，客户端改值应走 `@Remote`，插件自有数据应走存储服务。这里为了「只装一个包、不引入 peer 依赖」，写入用了自建的同源校验路由、持久化用了自建的 `mosaic/prompt.json`。将来宿主提供多行配置表单或标准 Remote 时，这块应当迁移过去。
 
 ## 本地优先

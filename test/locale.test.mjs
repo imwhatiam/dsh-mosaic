@@ -69,6 +69,11 @@ test('the client owns no theme state, no invented route, and no extra root per b
   // slow asset a bounded wait instead of hanging the diagram forever.
   assert.match(source, /data\.assets\.mermaid/)
   assert.match(source, /MERMAID_TIMEOUT_MS = \d+/)
+  // A widget may not start a model turn on its own: the bridge gates on the browser's
+  // user-activation state, and the parent caps frequency and payload size.
+  assert.match(source, /userActivation/)
+  assert.match(source, /WIDGET_ACTIONS_PER_WINDOW = \d+/)
+  assert.match(source, /WIDGET_ACTION_MAX_CHARS = \d+/)
   assert.match(source, /MERMAID_ROUTE = '\/dsh-mosaic\/assets\/mermaid\.min\.js'/)
   // The bundled engine is the official build; our own code must stay out of it and
   // the SVG must pass our gate before it reaches the DOM.

@@ -1,12 +1,13 @@
 import assert from 'node:assert/strict'
-import { mkdtemp, readFile, rm } from 'node:fs/promises'
+import { chmod, mkdir, mkdtemp, readdir, readFile, rm, stat, writeFile } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { after, test } from 'node:test'
 import {
   createPromptController,
   parsePromptBody,
-  readStoredPrompt,
+  crossSiteError,
+  readPromptFile,
   requestPolicyError,
   writeStoredPrompt,
 } from '../lib/prompt-store.js'
@@ -99,16 +100,16 @@ test('a state-changing request must be same-origin JSON', () => {
 test('the override round-trips through disk and clears on reset', async () => {
   const dir = await workdir()
   const path = join(dir, 'mosaic', 'prompt.json')
-  assert.equal(await readStoredPrompt(path), undefined, 'no file yet')
+  assert.equal((await readPromptFile(path)).prompt, undefined, 'no file yet')
 
   assert.equal((await writeStoredPrompt(path, 'my prompt')).persisted, true)
-  assert.equal(await readStoredPrompt(path), 'my prompt')
+  assert.equal((await readPromptFile(path)).prompt, 'my prompt')
   const stored = JSON.parse(await readFile(path, 'utf8'))
   assert.equal(stored.prompt, 'my prompt')
   assert.equal(typeof stored.updatedAt, 'string')
 
   assert.equal((await writeStoredPrompt(path, undefined)).persisted, true)
-  assert.equal(await readStoredPrompt(path), undefined, 'reset removes the override')
+  assert.equal((await readPromptFile(path)).prompt, undefined, 'reset removes the override')
 })
 
 test('the effective prompt follows user > config > built-in', async () => {
@@ -190,4 +191,126 @@ test('GET returns the snapshot and POST enforces the policy', async () => {
   await instance.handle(invalidJson, bad)
   assert.equal(bad.statusCode, 400)
   assert.equal(JSON.parse(bad.body).error, 'invalid_json')
+})
+
+
+test('disposing after an update revokes the newest section, not the first', async () => {
+  const dir = await workdir()
+  const { instance, sections } = controller({ path: join(dir, 'prompt.json') })
+  const dispose = instance.start()
+  await instance.update({ prompt: 'second generation' })
+  assert.deepEqual(sections, ['second generation'])
+  dispose()
+  assert.deepEqual(sections, [], 'no section survives the plugin')
+})
+
+test('a late hydrate cannot register after the plugin is gone', async () => {
+  const dir = await workdir()
+  const path = join(dir, 'prompt.json')
+  await writeStoredPrompt(path, 'from last time')
+  const { instance, sections } = controller({ path })
+  const dispose = instance.start()
+  const pending = instance.hydrate()
+  dispose()
+  await pending
+  assert.deepEqual(sections, [], 'hydrate resolved after disposal and stayed quiet')
+})
+
+test('a save wins over a hydrate that resolves later', async () => {
+  const dir = await workdir()
+  const path = join(dir, 'prompt.json')
+  await writeStoredPrompt(path, 'stale')
+  const { instance } = controller({ path })
+  instance.start()
+  const pending = instance.hydrate()
+  await instance.update({ prompt: 'fresh' })
+  await pending
+  assert.equal(instance.snapshot().prompt, 'fresh', 'the saved text is not clobbered by the load')
+})
+
+test('an update after disposal is refused instead of registering again', async () => {
+  const dir = await workdir()
+  const { instance, sections } = controller({ path: join(dir, 'prompt.json') })
+  const dispose = instance.start()
+  dispose()
+  const result = await instance.update({ prompt: 'too late' })
+  assert.equal(result.status, 503)
+  assert.equal(result.body.error, 'inactive')
+  assert.deepEqual(sections, [])
+})
+
+test('reads are refused from a foreign origin and the snapshot carries no Host path', async () => {
+  const dir = await workdir()
+  const { instance } = controller({ path: join(dir, 'prompt.json') })
+  instance.start()
+  assert.equal(crossSiteError(request({ 'sec-fetch-site': 'cross-site' }, 'GET')), 'cross_site')
+  assert.equal(crossSiteError(request({ origin: 'http://evil.example' }, 'GET')), 'cross_site')
+  assert.equal(crossSiteError(request({}, 'GET')), undefined)
+  const get = response()
+  await instance.handle(request({ 'sec-fetch-site': 'cross-site' }, 'GET'), get)
+  assert.equal(get.statusCode, 403)
+  assert.equal('path' in instance.snapshot(), false, 'absolute file paths stay in the Host')
+})
+
+test('concurrent saves leave state and disk agreeing', async () => {
+  const dir = await workdir()
+  const path = join(dir, 'prompt.json')
+  const { instance } = controller({ path })
+  instance.start()
+  await Promise.all([instance.update({ prompt: 'first' }), instance.update({ prompt: 'second' })])
+  assert.equal(instance.snapshot().prompt, instance.snapshot().prompt.trim())
+  assert.equal((await readPromptFile(path)).prompt, 'second', 'writes are serialized in call order')
+})
+
+
+test('a corrupt override is reported instead of silently ignored, and the file is kept', async () => {
+  const dir = await workdir()
+  const path = join(dir, 'prompt.json')
+  await writeFile(path, '{ this is not json', 'utf8')
+  assert.deepEqual(await readPromptFile(path), { error: 'corrupt' })
+  assert.equal((await readPromptFile(path)).prompt, undefined)
+  assert.equal((await readFile(path, 'utf8')).includes('not json'), true, 'the user file survives')
+  const { instance } = controller({ path })
+  instance.start()
+  await instance.hydrate()
+  assert.equal(instance.snapshot().readError, 'corrupt')
+  assert.equal(instance.snapshot().source, 'builtin', 'the plugin keeps working on the built-in text')
+})
+
+test('an unreadable override reports its own reason', async () => {
+  const dir = await workdir()
+  const path = join(dir, 'prompt.json')
+  await writeStoredPrompt(path, 'secret')
+  await chmod(path, 0o000)
+  try {
+    assert.deepEqual(await readPromptFile(path), { error: 'unreadable' })
+  } finally {
+    await chmod(path, 0o600)
+  }
+  assert.equal((await readPromptFile(path)).prompt, 'secret', 'permissions restored, content intact')
+})
+
+test('a successful write is atomic: no temp files linger and the old value is replaced', async () => {
+  const dir = await workdir()
+  const path = join(dir, 'prompt.json')
+  await writeStoredPrompt(path, 'first')
+  await writeStoredPrompt(path, 'second')
+  const entries = await readdir(dir)
+  assert.deepEqual(entries.filter((name) => name.endsWith('.tmp')), [], 'temp files are cleaned up')
+  assert.equal((await readPromptFile(path)).prompt, 'second')
+  assert.equal((await stat(path)).mode & 0o777, 0o600, 'the override is owner-only')
+})
+
+test('a failed publish leaves the previous file intact', async () => {
+  const dir = await workdir()
+  const path = join(dir, 'prompt.json')
+  await writeStoredPrompt(path, 'keep me')
+  // Renaming onto a non-empty directory fails; the file must stay untouched.
+  const blocked = join(dir, 'blocked')
+  await mkdir(blocked, { recursive: true })
+  await writeFile(join(blocked, 'child'), 'x')
+  const result = await writeStoredPrompt(blocked, 'nope')
+  assert.equal(result.persisted, false)
+  assert.ok(result.reason)
+  assert.equal((await readPromptFile(path)).prompt, 'keep me')
 })

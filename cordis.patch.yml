@@ -7,3 +7,4 @@
       # Override the contributed model prompt here, e.g.:
       #   config:
       #     prompt: 'Only render a dsh-view fence when a table or chart helps.'
+      #      logLevel: debug   # debug | info | warn | error (diagnostic JSONL verbosity)

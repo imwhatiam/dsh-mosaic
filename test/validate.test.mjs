@@ -123,3 +123,11 @@ test('accepts timeline and layers diagrams', () => {
   const layers = normalizeView({ items: [{ type: 'diagram', kind: 'layers', layers: [{ title: 'UI', items: ['React', 'CSS'] }] }] })
   assert.equal(layers.errors.length, 0)
 })
+
+
+test('a widget keeps only the programmatic action opt-in', () => {
+  const base = { type: 'widget', code: '<b>x</b>' }
+  assert.equal(normalizeView({ items: [base] }).spec.items[0].actions, undefined)
+  assert.equal(normalizeView({ items: [{ ...base, actions: 'programmatic' }] }).spec.items[0].actions, 'programmatic')
+  assert.equal(normalizeView({ items: [{ ...base, actions: 'auto' }] }).spec.items[0].actions, undefined, 'only the documented value survives')
+})
